@@ -23,7 +23,9 @@ app.use(cors({
   origin: [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://frontend-dusky-sigma-yzh1by759m.vercel.app/"
+    "https://frontend-dusky-sigma-yzh1by759m.vercel.app",
+    "https://frontend-git-main-manojkumartadikondas-projects.vercel.app",
+    "https://frontend-ges6u51ft-manojkumartadikondas-projects.vercel.app"
   ],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
