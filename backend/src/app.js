@@ -3,7 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
-
+const notificationRoutes =require("./routes/notification.routes");
 const authRoutes = require("./routes/auth.routes");
 const kycRoutes = require("./routes/kyc.routes");
 const loanRoutes = require("./routes/loan.routes");
@@ -54,7 +54,7 @@ app.use("/api/loans", loanRoutes);
 app.use("/api/bank-accounts", bankRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/admin", adminRoutes);
-
+app.use("/api/notifications",notificationRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

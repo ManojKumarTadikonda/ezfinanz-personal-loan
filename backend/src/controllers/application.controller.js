@@ -2,7 +2,7 @@ const Application = require("../models/Application");
 const asyncHandler = require("../utils/asyncHandler");
 const { success } = require("../utils/apiResponse");
 const { STAGES } = require("../constants/application.constants");
-
+const {sendNotificationToAdmins} = require("../services/notification.service");
 exports.acceptDeclaration = asyncHandler(async (req, res) => {
   if (req.body.accepted !== true) {
     return res.status(400).json({
@@ -36,14 +36,22 @@ exports.uploadSelfie = asyncHandler(async (req, res) => {
     });
   }
 
-  const application = await Application.findOne({ user: req.user._id });
+  const application =
+    await Application.findOne({
+      user: req.user._id
+    });
 
-  if (!application) throw new Error("Loan application not found");
+  if (!application) {
+    throw new Error(
+      "Loan application not found"
+    );
+  }
 
   if (!application.declaration.accepted) {
     return res.status(400).json({
       success: false,
-      message: "Accept declaration before submitting selfie"
+      message:
+        "Accept declaration before submitting selfie"
     });
   }
 
@@ -52,9 +60,20 @@ exports.uploadSelfie = asyncHandler(async (req, res) => {
     status: "PENDING"
   };
 
-  application.stage = STAGES.ADMIN_REVIEW;
+  application.stage =
+    STAGES.ADMIN_REVIEW;
 
   await application.save();
+
+  // SEND ADMIN NOTIFICATION
+  await sendNotificationToAdmins({
+    title: "Selfie Review Required",
+    body: `${req.user.name || "A customer"} submitted a selfie for review.`,
+    data: {
+      type: "SELFIE_SUBMITTED",
+      applicationId: application._id.toString()
+    }
+  });
 
   success(
     res,

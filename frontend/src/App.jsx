@@ -6,6 +6,9 @@ import {
   Menu, ShieldCheck, Smartphone, User, UserCheck, X, Calculator, Camera,
   Clock3, AlertCircle, CheckCircle2, XCircle
 } from "lucide-react";
+import {
+  useNotifications
+} from "./hooks/useNotifications";
 import api from "./lib/api";
 
 const steps = [
@@ -494,7 +497,79 @@ function Selfie() {
 }
 
 function AdminLayout() {
-  return <div className="admin-shell"><header className="admin-header"><Link to="/" className="brand"><span className="brand-mark">E</span> EZFINANZ</Link><div className="admin-user"><span>Administrator</span><button onClick={logout}><LogOut size={17}/></button></div></header><main className="admin-main"><Routes><Route index element={<AdminDashboard/>}/><Route path="applications/:id" element={<AdminApplication/>}/></Routes></main></div>;
+  const {
+    permission,
+    loading,
+    error,
+    enableNotifications
+  } = useNotifications(true);
+
+  return (
+    <div className="admin-shell">
+      <header className="admin-header">
+
+        <Link
+          to="/"
+          className="brand"
+        >
+          <span className="brand-mark">
+            E
+          </span>
+
+          EZFINANZ
+        </Link>
+
+        <div className="admin-user">
+
+          {permission !== "granted" && (
+            <button
+              className="notification-enable-btn"
+              onClick={
+                enableNotifications
+              }
+              disabled={loading}
+            >
+              🔔{" "}
+              {loading
+                ? "Enabling..."
+                : "Enable notifications"}
+            </button>
+          )}
+
+          <span>
+            Administrator
+          </span>
+
+          <button
+            onClick={logout}
+          >
+            <LogOut size={17} />
+          </button>
+
+        </div>
+      </header>
+
+      {error && (
+        <div className="notification-error">
+          {error}
+        </div>
+      )}
+
+      <main className="admin-main">
+        <Routes>
+          <Route
+            index
+            element={<AdminDashboard />}
+          />
+
+          <Route
+            path="applications/:id"
+            element={<AdminApplication />}
+          />
+        </Routes>
+      </main>
+    </div>
+  );
 }
 
 function AdminDashboard() {

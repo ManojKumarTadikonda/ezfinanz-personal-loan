@@ -42,7 +42,28 @@ const userSchema = new mongoose.Schema({
   emailVerificationToken: String,
   emailVerificationExpires: Date,
   phoneOtpHash: String,
-  phoneOtpExpires: Date
+  phoneOtpExpires: Date,
+  fcmTokens: [
+  {
+    token: {
+      type: String,
+      trim: true
+    },
+    platform: {
+      type: String,
+      enum: ["WEB"],
+      default: "WEB"
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    },
+    lastUsedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }
+]
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);
