@@ -55,22 +55,38 @@ exports.reviewSelfie = asyncHandler(async (req, res) => {
     throw new Error("action must be APPROVE or REJECT");
   }
 
-  if (action === "REJECT" && !reason) {
+  if (action === "REJECT" && !reason?.trim()) {
     throw new Error("Rejection reason is required");
   }
 
-  const application = await Application.findById(req.params.id);
+  const application = await Application.findById(
+    req.params.id
+  );
 
-  if (!application) throw new Error("Application not found");
+  if (!application) {
+    throw new Error("Application not found");
+  }
 
-  if (!application.selfie.path) {
+  // Cloudinary image check
+  if (!application.selfie?.url) {
     throw new Error("No selfie submitted");
   }
 
-  application.selfie.status = action === "APPROVE" ? "APPROVED" : "REJECTED";
-  application.selfie.rejectionReason = action === "REJECT" ? reason : undefined;
-  application.selfie.reviewedBy = req.user._id;
-  application.selfie.reviewedAt = new Date();
+  application.selfie.status =
+    action === "APPROVE"
+      ? "APPROVED"
+      : "REJECTED";
+
+  application.selfie.rejectionReason =
+    action === "REJECT"
+      ? reason.trim()
+      : undefined;
+
+  application.selfie.reviewedBy =
+    req.user._id;
+
+  application.selfie.reviewedAt =
+    new Date();
 
   application.stage =
     action === "APPROVE"
@@ -82,7 +98,11 @@ exports.reviewSelfie = asyncHandler(async (req, res) => {
   success(
     res,
     { application },
-    `Selfie ${action === "APPROVE" ? "approved" : "rejected"}`
+    `Selfie ${
+      action === "APPROVE"
+        ? "approved"
+        : "rejected"
+    }`
   );
 });
 

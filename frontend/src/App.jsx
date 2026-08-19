@@ -1,4 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import { Routes, Route, Navigate, Link, useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowRight, BadgeCheck, Banknote, Check, ChevronLeft, CircleDollarSign,
@@ -485,15 +490,346 @@ function Declaration() {
 }
 
 function Selfie() {
-  const [file,setFile]=useState(null); const [done,setDone]=useState(false); const [error,setError]=useState("");
-  async function submit(e){e.preventDefault(); if(!file)return; const fd=new FormData();fd.append("selfie",file);try{await api.post("/applications/selfie",fd,{headers:{"Content-Type":"multipart/form-data"}});setDone(true)}catch(e){setError(errorMessage(e))}}
-  if(done) return <Page title="Application submitted" subtitle="Your selfie has been submitted for final review."><div className="success-card"><div className="success-icon"><CheckCircle2/></div><h2>Waiting for admin review</h2><p>Your application is now with the EZFINANZ review team. You can sign in again to check your status.</p><Link className="btn btn-primary" to="/apply/verification">Back to application</Link></div></Page>;
-  return <Page title="Final identity check" subtitle="Upload a clear selfie or photo to complete your application.">
-    <form className="card selfie-card" onSubmit={submit}><div className="camera-placeholder"><Camera size={45}/><h3>Live selfie / photo verification</h3><p>Use a clear, well-lit photo showing your face.</p></div>
-      <FileField label="Choose photo" file={file} setFile={setFile} accept="image/jpeg,image/png,image/webp"/>
-      {error&&<ErrorBox text={error}/>}<button className="btn btn-primary" disabled={!file}>Submit for review <ArrowRight size={17}/></button>
-    </form>
-  </Page>;
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  const [stream, setStream] = useState(null);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [file, setFile] = useState(null);
+
+  const [cameraStarted, setCameraStarted] = useState(false);
+  const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => {
+          track.stop();
+        });
+      }
+    };
+  }, [stream]);
+
+  async function startCamera() {
+    setError("");
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError(
+          "Camera access is not supported by this browser."
+        );
+        return;
+      }
+
+      const mediaStream =
+        await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: {
+              ideal: 1280
+            },
+            height: {
+              ideal: 720
+            }
+          },
+          audio: false
+        });
+
+      setStream(mediaStream);
+      setCameraStarted(true);
+
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error("Camera error:", err);
+
+      if (err.name === "NotAllowedError") {
+        setError(
+          "Camera permission was denied. Please allow camera access and try again."
+        );
+      } else if (err.name === "NotFoundError") {
+        setError(
+          "No camera was found on this device."
+        );
+      } else {
+        setError(
+          "Unable to access the camera."
+        );
+      }
+    }
+  }
+
+  function capturePhoto() {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (!video || !canvas) {
+      return;
+    }
+
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+
+    context.drawImage(
+      video,
+      0,
+      0,
+      width,
+      height
+    );
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setError(
+            "Unable to capture selfie."
+          );
+          return;
+        }
+
+        const selfieFile = new File(
+          [blob],
+          `selfie-${Date.now()}.jpg`,
+          {
+            type: "image/jpeg"
+          }
+        );
+
+        setFile(selfieFile);
+
+        const imageUrl =
+          URL.createObjectURL(blob);
+
+        setCapturedImage(imageUrl);
+
+        if (stream) {
+          stream.getTracks().forEach(track => {
+            track.stop();
+          });
+        }
+
+        setStream(null);
+        setCameraStarted(false);
+      },
+      "image/jpeg",
+      0.9
+    );
+  }
+
+  function retakePhoto() {
+    if (capturedImage) {
+      URL.revokeObjectURL(capturedImage);
+    }
+
+    setCapturedImage(null);
+    setFile(null);
+
+    startCamera();
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+
+    if (!file) {
+      setError("Please capture your selfie first.");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    const fd = new FormData();
+
+    fd.append(
+      "selfie",
+      file
+    );
+
+    try {
+      await api.post(
+        "/applications/selfie",
+        fd,
+        {
+          headers: {
+            "Content-Type":
+              "multipart/form-data"
+          }
+        }
+      );
+
+      setDone(true);
+    } catch (e) {
+      setError(
+        errorMessage(e)
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <Page
+        title="Application submitted"
+        subtitle="Your selfie has been submitted for final review."
+      >
+        <div className="success-card">
+
+          <div className="success-icon">
+            <CheckCircle2 />
+          </div>
+
+          <h2>
+            Waiting for admin review
+          </h2>
+
+          <p>
+            Your application is now with
+            the EZFINANZ review team.
+            You can sign in again to check
+            your status.
+          </p>
+
+          <Link
+            className="btn btn-primary"
+            to="/apply/verification"
+          >
+            Back to application
+          </Link>
+
+        </div>
+      </Page>
+    );
+  }
+
+  return (
+    <Page
+      title="Final identity check"
+      subtitle="Take a live selfie to complete your application."
+    >
+      <form
+        className="card selfie-card"
+        onSubmit={submit}
+      >
+
+        {!cameraStarted && !capturedImage && (
+          <div className="camera-placeholder">
+
+            <Camera size={45} />
+
+            <h3>
+              Live selfie verification
+            </h3>
+
+            <p>
+              Allow camera access and take
+              a clear, well-lit selfie.
+            </p>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={startCamera}
+            >
+              <Camera size={17} />
+              Open camera
+            </button>
+
+          </div>
+        )}
+
+        {cameraStarted && (
+          <div className="camera-container">
+
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="camera-video"
+            />
+
+            <div className="camera-overlay">
+              <div className="face-guide" />
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary capture-btn"
+              onClick={capturePhoto}
+            >
+              <Camera size={18} />
+              Capture selfie
+            </button>
+
+          </div>
+        )}
+
+        {capturedImage && (
+          <div className="captured-container">
+
+            <img
+              src={capturedImage}
+              alt="Captured selfie"
+              className="captured-selfie"
+            />
+
+            <div className="capture-actions">
+
+              <button
+                type="button"
+                className="btn btn-light"
+                onClick={retakePhoto}
+              >
+                Retake
+              </button>
+
+              <span className="capture-success">
+                <CheckCircle2 size={17} />
+                Selfie captured
+              </span>
+
+            </div>
+
+          </div>
+        )}
+
+        <canvas
+          ref={canvasRef}
+          style={{ display: "none" }}
+        />
+
+        {error && (
+          <ErrorBox text={error} />
+        )}
+
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={!file || loading}
+        >
+          {loading
+            ? "Submitting..."
+            : "Submit for review"}
+
+          {!loading && (
+            <ArrowRight size={17} />
+          )}
+        </button>
+
+      </form>
+    </Page>
+  );
 }
 
 function AdminLayout() {
@@ -597,8 +933,104 @@ function AdminApplication() {
       <DetailCard title="Bank account" icon={<Banknote/>}><InfoRow label="Holder" value={app.bankAccount?.accountHolderName}/><InfoRow label="Bank" value={app.bankAccount?.bankName}/><InfoRow label="IFSC" value={app.bankAccount?.ifscCode}/><InfoRow label="Account" value={mask(app.bankAccount?.accountNumber)}/></DetailCard>
       <DetailCard title="Declaration" icon={<FileCheck2/>}><InfoRow label="Accepted" value={app.declaration?.accepted?"Yes":"No"}/><InfoRow label="Accepted at" value={app.declaration?.acceptedAt?new Date(app.declaration.acceptedAt).toLocaleString():"—"}/></DetailCard>
     </div>
-    <div className="card review-card"><div className="card-title"><Camera/><div><h3>Selfie review</h3><p>Final identity verification before disbursement.</p></div></div><div className="review-status"><span className={`pill ${app.selfie?.status==="APPROVED"?"success":app.selfie?.status==="REJECTED"?"danger":"warning"}`}>{app.selfie?.status||"PENDING"}</span>{app.selfie?.rejectionReason&&<span>{app.selfie.rejectionReason}</span>}</div><div className="review-actions">{app.selfie?.status==="PENDING"&&<><button className="btn btn-primary" onClick={()=>review("APPROVE")}><Check size={17}/> Approve selfie</button><button className="btn btn-danger" onClick={()=>review("REJECT")}><X size={17}/> Reject</button></>}{app.selfie?.status==="APPROVED"&&app.disbursement?.status!=="CONFIRMED"&&<button className="btn btn-primary" onClick={disburse}><Banknote size={17}/> Confirm disbursement</button>}{app.disbursement?.status==="CONFIRMED"&&<span className="approved-note"><CheckCircle2/> Disbursement confirmed</span>}</div></div>
-  </div>;
+<div className="card review-card">
+
+  <div className="card-title">
+    <Camera />
+
+    <div>
+      <h3>Selfie review</h3>
+
+      <p>
+        Final identity verification before disbursement.
+      </p>
+    </div>
+  </div>
+
+  {app.selfie?.url ? (
+    <div className="admin-selfie-preview">
+
+      <img
+        src={app.selfie.url}
+        alt={`${app.user?.name || "Customer"} selfie`}
+        className="admin-selfie-image"
+      />
+
+    </div>
+  ) : (
+    <div className="no-selfie">
+      <Camera size={30} />
+      <span>
+        Selfie has not been submitted yet.
+      </span>
+    </div>
+  )}
+
+  <div className="review-status">
+
+    <span
+      className={`pill ${
+        app.selfie?.status === "APPROVED"
+          ? "success"
+          : app.selfie?.status === "REJECTED"
+            ? "danger"
+            : "warning"
+      }`}
+    >
+      {app.selfie?.status || "PENDING"}
+    </span>
+
+    {app.selfie?.rejectionReason && (
+      <span>
+        {app.selfie.rejectionReason}
+      </span>
+    )}
+
+  </div>
+
+  <div className="review-actions">
+
+    {app.selfie?.status === "PENDING" && (
+      <>
+        <button
+          className="btn btn-primary"
+          onClick={() => review("APPROVE")}
+        >
+          <Check size={17} />
+          Approve selfie
+        </button>
+
+        <button
+          className="btn btn-danger"
+          onClick={() => review("REJECT")}
+        >
+          <X size={17} />
+          Reject
+        </button>
+      </>
+    )}
+
+    {app.selfie?.status === "APPROVED" &&
+      app.disbursement?.status !== "CONFIRMED" && (
+        <button
+          className="btn btn-primary"
+          onClick={disburse}
+        >
+          <Banknote size={17} />
+          Confirm disbursement
+        </button>
+      )}
+
+    {app.disbursement?.status === "CONFIRMED" && (
+      <span className="approved-note">
+        <CheckCircle2 />
+        Disbursement confirmed
+      </span>
+    )}
+
+  </div>
+
+</div>  </div>;
 }
 
 function Card({title,icon,children}){return <div className="card"><SectionTitle icon={icon} title={title}/>{children}</div>}
