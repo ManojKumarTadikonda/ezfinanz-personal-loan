@@ -19,8 +19,8 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
-backend/firebase-service-account.json
 # Backend uploads
+backend/firebase-service-account.json
 backend/uploads/*
 !backend/uploads/.gitkeep
 

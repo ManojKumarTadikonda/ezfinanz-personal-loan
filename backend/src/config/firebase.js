@@ -1,29 +1,43 @@
-const { initializeApp, cert, getApps } = require("firebase-admin/app");
-const { getMessaging } = require("firebase-admin/messaging");
-const path = require("path");
-const fs = require("fs");
+const {
+  initializeApp,
+  cert,
+  getApps
+} = require("firebase-admin/app");
 
-const serviceAccountPath = path.join(
-  __dirname,
-  "../../firebase-service-account.json"
-);
+const {
+  getMessaging
+} = require("firebase-admin/messaging");
 
-if (!fs.existsSync(serviceAccountPath)) {
-  throw new Error(
-    "firebase-service-account.json not found in backend root"
-  );
+if (!process.env.FIREBASE_PROJECT_ID) {
+  throw new Error("FIREBASE_PROJECT_ID is missing");
 }
 
-const serviceAccount = require(serviceAccountPath);
+if (!process.env.FIREBASE_CLIENT_EMAIL) {
+  throw new Error("FIREBASE_CLIENT_EMAIL is missing");
+}
+
+if (!process.env.FIREBASE_PRIVATE_KEY) {
+  throw new Error("FIREBASE_PRIVATE_KEY is missing");
+}
 
 const firebaseApp =
   getApps().length > 0
     ? getApps()[0]
     : initializeApp({
-        credential: cert(serviceAccount)
+        credential: cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+
+          clientEmail:
+            process.env.FIREBASE_CLIENT_EMAIL,
+
+          privateKey:
+            process.env.FIREBASE_PRIVATE_KEY
+              .replace(/\\n/g, "\n")
+        })
       });
 
-const messaging = getMessaging(firebaseApp);
+const messaging =
+  getMessaging(firebaseApp);
 
 module.exports = {
   firebaseApp,
